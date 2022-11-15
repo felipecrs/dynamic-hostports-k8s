@@ -43,8 +43,9 @@ spec:
   template:
     metadata:
       annotations:
-        #dynamic-hostports.k8s/8080: 'DO NOT SET' # This value will be automatically set by the tool
-        #dynamic-hostports.k8s/8082: 'DO NOT SET' # you can query it to determine the outgoing hostport
+        # dynamic-hostports.k8s/8080: 'DO NOT SET' # This value will be automatically set by the tool
+        # dynamic-hostports.k8s/8082: 'DO NOT SET' # you can query it to determine the outgoing hostport
+        # dynamic-hostports.k8s/node-fqdn: 'DO NOT SET' # you can query it to determine the fully qualified hostname of the node running the pod
       labels:
         app: dynamic-hostport-example-deployment
         # This is where the magic happens
@@ -56,11 +57,11 @@ spec:
         env:
           - name: MESSAGE
             value: Hello from port 8080
-          #- name: PORT
-          #  value: '8080' # 8080 Is standard port of paulbouwer/hello-kubernete
+          # - name: PORT
+          #   value: '8080' # 8080 Is standard port of paulbouwer/hello-kubernete
         ports:
         - containerPort: 8080
-          #hostPort: DO NOT SET THIS HERE
+          # hostPort: DO NOT SET THIS HERE
       - name: dynamic-hostport-example2-container
         image: paulbouwer/hello-kubernetes:1.8
         env:
@@ -70,7 +71,7 @@ spec:
             value: '8082'
         ports:
         - containerPort: 8082
-          #hostPort: DO NOT SET THIS HERE
+          # hostPort: DO NOT SET THIS HERE
 ```
 
 ## Get the port and ip

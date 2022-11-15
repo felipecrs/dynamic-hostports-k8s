@@ -26,8 +26,8 @@ metadata:
   name: dynamic-hostports-account-pods
 rules:
 - apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["list","watch","patch"]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list","create","watch","patch","delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -98,6 +98,9 @@ spec:
       serviceAccountName: dynamic-hostports-account
       containers:
       - name: dynamic-hostports-container
-        image: 0blu/dynamic-hostport-manager:latest
+        image: ghcr.io/felipecrs/dynamic-hostport-manager:latest
         imagePullPolicy: Always
+        env:
+        - name: FQDN_IMAGE
+          value: busybox:latest
       restartPolicy: Always

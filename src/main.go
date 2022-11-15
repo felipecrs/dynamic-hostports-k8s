@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	logLib "log"
+	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,8 +24,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const servicePrefix = "dynamic-hostports-service"
 const annotationPrefix = "dynamic-hostports.k8s"
+const annotationFqdn = annotationPrefix + "/node-fqdn"
 const labelKey = "dynamic-hostports"
 
 const managedByLabelKey = "app.kubernetes.io/managed-by"
@@ -42,7 +46,7 @@ func splitHostportStrings(portsString string) ([]int32, error) {
 			return nil, err
 		}
 		if port <= 0 || port >= 65536 {
-			return nil, errors.New("Port is not in valid range")
+			return nil, errors.New("port is not in valid range")
 		}
 		mapped[i] = int32(port)
 	}
@@ -191,6 +195,32 @@ func addPodPortAnnotation(client *kubernetes.Clientset, pod *v1.Pod, requestedPo
 	return err
 }
 
+func addPodFqdnAnnotation(client *kubernetes.Clientset, pod *v1.Pod, fqdn string) error {
+	// This is kinda hacky, since we need to ensure that .metadata.annotations is available
+	serializedJson := []byte(`{
+	"kind": "Pod",
+	"apiVersion": "v1",
+	"metadata": {
+		"annotations": {
+			"` + annotationFqdn + "\": \"" + fqdn + `"
+		}
+	}
+}`)
+
+	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		types.MergePatchType,
+		serializedJson,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		logErr.Printf("[%s] Adding annotation node-fqdn=>%s failed %s", pod.Name, fqdn, err)
+	}
+
+	return err
+}
+
 func deleteService(client *kubernetes.Clientset, namespace string, serviceName string) error {
 	return client.CoreV1().Services(namespace).Delete(context.Background(), serviceName, metav1.DeleteOptions{})
 }
@@ -241,17 +271,79 @@ func handlePodEvent(client *kubernetes.Clientset, eventType watch.EventType, pod
 			return err
 		}
 
-		handledPods[namespacedPodName] = true
-
 		for _, requestedPort := range requestedPorts {
 			err := createService(client, pod, requestedPort, cachedExternalIPs)
 			if err != nil {
 				return err
 			}
 		}
+		err = addFqdnAnnotationAnnotation(client, pod)
+		if err != nil {
+			return err
+		}
+		handledPods[namespacedPodName] = true
 	}
 
 	return nil
+}
+
+func addFqdnAnnotationAnnotation(client *kubernetes.Clientset, pod *v1.Pod) error {
+	if pod.Annotations[annotationFqdn] != "" {
+		log.Printf("[%s] Pod already has service annotation for node-fqdn. Skipping recreation.", pod.Name)
+		return nil
+	}
+
+	// Get pod node name
+	nodeName := pod.Spec.NodeName
+
+	// Generate random pod name string
+	podName := pod.Name + "-node-fqdn-" + randIntString(5)
+
+	// Run one off pod on node to get fqdn using kubectl
+	cmd := exec.Command("kubectl",
+		"run",
+		"--namespace="+pod.Namespace,
+		fmt.Sprintf("--labels=%s=%s,%s=%s", managedByLabelKey, managedByLabelValue, forPodLabelKey, pod.Name),
+		"--rm",
+		"--restart=Never",
+		"--quiet",
+		fmt.Sprintf("--overrides={\"spec\": {\"hostNetwork\": true, \"nodeName\": \"%s\"}}", nodeName),
+		"--image="+os.Getenv("FQDN_IMAGE"),
+		"--attach",
+		podName,
+		"--",
+		"hostname",
+		"-f")
+
+	// Get output
+	out, err := cmd.Output()
+	if err != nil {
+		logErr.Printf("[%s] Getting pod fqdn failed with %s", pod.Name, err)
+		logErr.Printf("[%s] Stderr: %s", pod.Name, err.(*exec.ExitError).Stderr)
+		return err
+	}
+
+	// Trim output
+	fqdn := strings.TrimSpace(string(out))
+
+	// Add annotation to pod
+	err = addPodFqdnAnnotation(client, pod, fqdn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Generate random string of numeric characters
+func randIntString(n int) string {
+	const letterBytes = "0123456789"
+	// Seed random number generator
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
 
 func podManagerRoutine(client *kubernetes.Clientset, namespace string) {
@@ -284,7 +376,7 @@ func podManagerRoutine(client *kubernetes.Clientset, namespace string) {
 }
 
 func deleteStaleServices(client *kubernetes.Clientset, namespace string) error {
-	pods, err := client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+	pods, _ := client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labelKey,
 	})
 
