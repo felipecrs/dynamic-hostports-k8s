@@ -1,13 +1,13 @@
-FROM golang:1.17-alpine as builder
+FROM golang:1.22-alpine as builder
 WORKDIR /src
-COPY src/go.mod src/go.sum .
+COPY src/go.mod src/go.sum ./
 RUN go mod download
 COPY src .
 RUN go build -o main .
 
-FROM golang:alpine AS kubectl
+FROM alpine AS kubectl
 
-ARG KUBECTL_VERSION="1.21.14"
+ARG KUBECTL_VERSION="1.30.1"
 RUN apk add --no-cache curl \
     && curl -fsSL --output /kubectl https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl \
     && chmod +x /kubectl
