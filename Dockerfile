@@ -16,7 +16,7 @@ FROM alpine
 RUN adduser --system --no-create-home user
 USER user
 
-ENV FQDN_IMAGE="busybox:latest"
+ENV FQDN_IMAGE="ubuntu:noble"
 
 WORKDIR /app
 COPY --from=kubectl /kubectl /usr/local/bin/kubectl

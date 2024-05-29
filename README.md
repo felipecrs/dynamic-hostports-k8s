@@ -82,7 +82,7 @@ kubectl apply -f https://raw.githubusercontent.com/felipecrs/dynamic-hostports-k
 
 If you want, you can also modify this file and use the `KUBERNETES_NAMESPACE` environment variable to limit the access.
 
-> **Node FQDN note:** You can also modify this file and change the `FQDN_IMAGE` (default to `busybox:latest`) to something else, which may be useful when you need to use an internal mirror for Docker Hub.
+> **Node FQDN note:** You can also modify this file and change the `FQDN_IMAGE` (default to `ubuntu:noble`) to something else, which may be useful when you need to use an internal mirror for Docker Hub.
 
 You can also build it yourself:
 

@@ -312,8 +312,9 @@ func addFqdnAnnotationAnnotation(client *kubernetes.Clientset, pod *v1.Pod) erro
 		"--attach",
 		podName,
 		"--",
-		"hostname",
-		"-f")
+		"bash",
+		"-c",
+		"hostname -A | awk '{print $1}'")
 
 	// Get output
 	out, err := cmd.Output()

@@ -102,5 +102,5 @@ spec:
         imagePullPolicy: Always
         env:
         - name: FQDN_IMAGE
-          value: busybox:latest
+          value: ubuntu:noble
       restartPolicy: Always
