@@ -5,7 +5,7 @@ Sortof a polyfill for https://github.com/kubernetes/kubernetes/issues/49792
 
 ## **Node FQDN**
 
-This project is a simple fork of the [original one](https://github.com/0blu/dynamic-hostports-k8s). It does everything the original does, plus sinjects the fully qualified domain name of the node that the pod was assigned to as a label to the pod.
+This project is a simple fork of the [original one](https://github.com/0blu/dynamic-hostports-k8s). It does everything the original does, plus it injects the fully qualified domain name of the node that the pod was assigned to as a label to the pod.
 
 You can combine this feature with the original hostport feature to be able to know the "externally" accessible domain from within the pod. Here is an example exposing an SSH server from within the pod:
 
@@ -30,9 +30,6 @@ spec:
         - containerPort: 22
       securityContext:
         privileged: true
-      args:
-        - sleep
-        - infinity
       volumeMounts:
         - name: podinfo
           mountPath: /ssh-command/podinfo
@@ -60,7 +57,7 @@ The output should be something like:
 ssh ssh://user@my-node-x.domain:13245
 ```
 
-If the node itself does not have a fully qualified domain, this tool won't do any magic. The content of the label attached by the tool will be the same of the output of running the command `hostname -f` in the node. That's even how it works.
+If the node itself does not have a fully qualified domain, this tool won't do any magic. The content of the label attached by the tool will be the same of the output of running the command `hostname -A | awk '{print $1}'` in the node. That's even how it works.
 
 It's very useful for example in an internal company network, which you can access any VM by using their FQDN.
 
@@ -87,7 +84,7 @@ If you want, you can also modify this file and use the `KUBERNETES_NAMESPACE` en
 You can also build it yourself:
 
 ``` bash
-docker build -t ghcr.io/felipecrs/dynamic-hostport-manager:latest .
+docker build . --tag ghcr.io/felipecrs/dynamic-hostport-manager:latest 
 ```
 
 Hosted on GitHub Container Registry: https://ghcr.io/felipecrs/felipecrs/dynamic-hostport-manager
