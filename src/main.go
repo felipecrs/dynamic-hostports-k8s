@@ -327,6 +327,12 @@ func addFqdnAnnotationAnnotation(client *kubernetes.Clientset, pod *v1.Pod) erro
 	// Trim output
 	fqdn := strings.TrimSpace(string(out))
 
+	// Check if fqdn is empty
+	if fqdn == "" {
+		logErr.Printf("[%s] Got empty fqdn from node %s", pod.Name, nodeName)
+		return errors.New("fqdn is empty")
+	}
+
 	// Add annotation to pod
 	err = addPodFqdnAnnotation(client, pod, fqdn)
 	if err != nil {
