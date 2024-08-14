@@ -26,7 +26,7 @@ metadata:
   name: dynamic-hostports-account-pods
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/log"]
+    resources: ["pods", "pods/exec"]
     verbs: ["get", "list", "create", "watch", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
