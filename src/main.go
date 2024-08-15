@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	logLib "log"
 	"math/rand"
 	"os"
@@ -293,28 +292,17 @@ func addFqdnAnnotationAnnotation(client *kubernetes.Clientset, pod *v1.Pod) erro
 		return nil
 	}
 
-	// Get pod node name
-	nodeName := pod.Spec.NodeName
+	podName := pod.Name + "-fqdn-" + randIntString(5)
 
-	// Generate random pod name string
-	podName := pod.Name + "-node-fqdn-" + randIntString(5)
-
-	// Run one off pod on node to get fqdn using kubectl
-	cmd := exec.Command("kubectl",
-		"run",
-		"--namespace="+pod.Namespace,
-		fmt.Sprintf("--labels=%s=%s,%s=%s", managedByLabelKey, managedByLabelValue, forPodLabelKey, pod.Name),
-		"--rm",
-		"--restart=Never",
-		"--quiet",
-		fmt.Sprintf("--overrides={\"spec\": {\"hostNetwork\": true, \"nodeName\": \"%s\"}}", nodeName),
-		"--image="+os.Getenv("FQDN_IMAGE"),
-		"--attach",
+	cmd := exec.Command("/app/get_node_fqdn.sh",
 		podName,
-		"--",
-		"bash",
-		"-c",
-		"hostname -A | awk '{print $1}'")
+		pod.Namespace,
+		pod.Spec.NodeName,
+		os.Getenv("FQDN_IMAGE"),
+		managedByLabelKey,
+		managedByLabelValue,
+		forPodLabelKey,
+		pod.Name)
 
 	// Get output
 	out, err := cmd.Output()
@@ -326,12 +314,6 @@ func addFqdnAnnotationAnnotation(client *kubernetes.Clientset, pod *v1.Pod) erro
 
 	// Trim output
 	fqdn := strings.TrimSpace(string(out))
-
-	// Check if fqdn is empty
-	if fqdn == "" {
-		logErr.Printf("[%s] Got empty fqdn from node %s", pod.Name, nodeName)
-		return errors.New("fqdn is empty")
-	}
 
 	// Add annotation to pod
 	err = addPodFqdnAnnotation(client, pod, fqdn)
